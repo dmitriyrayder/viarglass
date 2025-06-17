@@ -7,14 +7,18 @@ import io
 import base64
 
 # Настройка MediaPipe
-mp_face_mesh = mp.solutions.face_mesh
-mp_drawing = mp.solutions.drawing_utils
-face_mesh = mp_face_mesh.FaceMesh(
-    static_image_mode=True,
-    max_num_faces=1,
-    refine_landmarks=True,
-    min_detection_confidence=0.5
-)
+@st.cache_resource
+def init_mediapipe():
+    mp_face_mesh = mp.solutions.face_mesh
+    face_mesh = mp_face_mesh.FaceMesh(
+        static_image_mode=True,
+        max_num_faces=1,
+        refine_landmarks=True,
+        min_detection_confidence=0.5
+    )
+    return face_mesh
+
+face_mesh = init_mediapipe()
 
 def detect_face_landmarks(image):
     """Определяет ключевые точки лица"""
@@ -71,14 +75,20 @@ def resize_and_rotate_glasses(glasses_img, eye_distance, angle, scale_factor=1.2
         raise ValueError("Неподдерживаемый формат изображения очков")
     
     # Масштабирование
+    if eye_distance < 50:  # Слишком малое расстояние
+        eye_distance = 150  # Устанавливаем минимальное значение
+    
     glasses_width = int(eye_distance * scale_factor)
     aspect_ratio = glasses_pil.height / glasses_pil.width
     glasses_height = int(glasses_width * aspect_ratio)
     
     glasses_resized = glasses_pil.resize((glasses_width, glasses_height), Image.Resampling.LANCZOS)
     
-    # Поворот
+    # Поворот (ограничиваем угол)
     angle_degrees = np.degrees(angle)
+    if abs(angle_degrees) > 45:  # Ограничиваем поворот
+        angle_degrees = np.sign(angle_degrees) * 45
+    
     glasses_rotated = glasses_resized.rotate(angle_degrees, expand=True)
     
     return glasses_rotated
@@ -124,18 +134,18 @@ def overlay_glasses(face_img, glasses_img, left_center, right_center, eye_distan
 
 def create_demo_glasses():
     """Создает демонстрационные очки"""
-    glasses = np.zeros((100, 200, 4), dtype=np.uint8)
+    glasses = np.zeros((80, 160, 4), dtype=np.uint8)
     
     # Рисуем линзы (черные с прозрачностью)
-    cv2.circle(glasses, (50, 50), 30, (0, 0, 0, 180), 3)
-    cv2.circle(glasses, (150, 50), 30, (0, 0, 0, 180), 3)
+    cv2.circle(glasses, (40, 40), 25, (50, 50, 50, 200), 2)
+    cv2.circle(glasses, (120, 40), 25, (50, 50, 50, 200), 2)
     
     # Переносица
-    cv2.line(glasses, (80, 45), (120, 45), (0, 0, 0, 180), 3)
+    cv2.line(glasses, (65, 35), (95, 35), (50, 50, 50, 200), 2)
     
     # Дужки
-    cv2.line(glasses, (20, 50), (5, 40), (0, 0, 0, 180), 3)
-    cv2.line(glasses, (180, 50), (195, 40), (0, 0, 0, 180), 3)
+    cv2.line(glasses, (15, 40), (5, 30), (50, 50, 50, 200), 2)
+    cv2.line(glasses, (145, 40), (155, 30), (50, 50, 50, 200), 2)
     
     return glasses
 
